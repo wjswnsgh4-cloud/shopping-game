@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>필요 vs 원함 - 장보기 시뮬레이션</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --main-bg: #f0f9f8;
+            --card-bg: #ffffff;
+            --accent-color: #5bb0a6;
+            --text-color: #333;
+            --price-color: #ff6b6b;
+        }
+        body { font-family: 'Nanum Gothic', 'Malgun Gothic', sans-serif; background-color: var(--main-bg); color: var(--text-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { width: 90%; max-width: 500px; background: var(--card-bg); padding: 30px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); text-align: center; }
+        .hidden { display: none; }
+        h1 { color: var(--accent-color); font-size: 2rem; margin-bottom: 5px; }
+        .subtitle { color: #888; font-size: 1rem; margin-bottom: 30px; }
+        input[type="text"] { width: 80%; padding: 15px; margin: 10px 0; border: 2px solid #eee; border-radius: 12px; font-size: 1rem; outline: none; }
+        button { background-color: var(--accent-color); color: white; border: none; padding: 15px 35px; border-radius: 50px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.2s; margin: 10px 5px; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        
+        /* 영수증 스타일 */
+        #receiptCapture { 
+            background: white; 
+            padding: 30px; 
+            border: 1px solid #ddd; 
+            border-top: 10px solid #444; 
+            text-align: left; 
+            margin: 20px auto;
+            position: relative;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .receipt-title { text-align: center; border-bottom: 1px dashed #bbb; padding-bottom: 15px; margin-bottom: 15px; }
+        .receipt-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }
+        .receipt-total { border-top: 2px solid #444; margin-top: 15px; padding-top: 15px; font-weight: bold; font-size: 1.1rem; }
+        
+        /* 상점 및 기타 레이아웃 */
+        .status-bar { position: sticky; top: -30px; background: white; padding: 15px; border-bottom: 3px solid var(--accent-color); display: flex; justify-content: space-between; font-weight: bold; z-index: 10; margin-bottom: 10px; }
+        .shop-list { text-align: left; max-height: 350px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #eee; border-radius: 10px; padding: 10px; }
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f9f9f9; }
+        .download-btn { background-color: #ff9800; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="app">
+        <div id="screen1">
+            <h1>필요 vs 원함</h1>
+            <p class="subtitle">🛒 슬기로운 장보기 활동을 시작해볼까요?</p>
+            <button onclick="nextScreen(2)">시작하기</button>
+        </div>
+
+        <div id="screen2" class="hidden">
+            <h2>누구의 영수증인가요?</h2>
+            <input type="text" id="gradeClass" placeholder="학년 반 (예: 3-1)">
+            <input type="text" id="userName" placeholder="이름을 입력하세요">
+            <br>
+            <button onclick="setupGame()">입장하기</button>
+        </div>
+
+        <div id="screen3" class="hidden">
+            <h2 id="welcomeMsg"></h2>
+            <div style="background: #fff9c4; padding: 20px; border-radius: 15px; text-align: left; margin: 20px 0;">
+                오늘의 미션: <b>30,000원</b>으로 가족을 위한 식재료와 학교 갈 준비물을 골라보세요. 남는 돈으로는 원하는 것을 사도 좋아요!
+            </div>
+            <button onclick="nextScreen(4)">장보러 가기</button>
+        </div>
+
+        <div id="screen4" class="hidden">
+            <div class="status-bar">
+                <span>💰 잔액: <span id="balance">30,000</span>원</span>
+                <span>🛒 합계: <span id="total">0</span>원</span>
+            </div>
+            <div class="shop-list" id="shopItems"></div>
+            <button onclick="showResult()">계산대 가기</button>
+        </div>
+
+        <div id="screen5" class="hidden">
+            <h2>🛒 계산 완료!</h2>
+            
+            <div id="receiptCapture">
+                <div class="receipt-title">
+                    <h3 style="margin:0;">강원 마트 영수증</h3>
+                    <p style="font-size:0.8rem; color:#666;" id="receiptDate"></p>
+                    <p style="font-size:0.9rem; margin: 5px 0;" id="receiptUser"></p>
+                </div>
+                <div id="receiptList"></div>
+                <div class="receipt-total">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>합계 금액:</span><span id="resTotal"></span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; color: var(--accent-color);">
+                        <span>남은 잔액:</span><span id="resBalance"></span>
+                    </div>
+                </div>
+                <div style="text-align:center; margin-top:20px; font-size:0.8rem; color:#999;">
+                    감사합니다. 또 이용해주세요!
+                </div>
+            </div>
+
+            <button class="download-btn" onclick="downloadReceiptImage()">영수증 사진 저장하기</button>
+            <button onclick="location.reload()" style="background:#888;">다시 하기</button>
+        </div>
+    </div>
+
+    <script>
+        const budget = 30000;
+        let currentTotal = 0;
+        let user = { name: '', info: '' };
+        let selectedItems = [];
+
+        const items = [
+            { name: "🍞 식빵 (필요)", price: 2800 },
+            { name: "🥛 우유 (필요)", price: 2500 },
+            { name: "🥚 달걀 10알 (필요)", price: 4800 },
+            { name: "✏️ 연필 세트 (필요)", price: 3000 },
+            { name: "🪥 칫솔 (필요)", price: 1500 },
+            { name: "💧 생수 (필요)", price: 1000 },
+            { name: "🍎 사과 (필요)", price: 3000 },
+            { name: "🧸 곰인형 (원함)", price: 15000 },
+            { name: "🤖 로봇 장난감 (원함)", price: 22000 },
+            { name: "🎮 캐릭터 카드 (원함)", price: 5000 },
+            { name: "🍭 막대사탕 (원함)", price: 500 },
+            { name: "🍦 아이스크림 (원함)", price: 1500 },
+            { name: "📒 스티커북 (원함)", price: 6000 },
+            { name: "🔋 건전지 (필요)", price: 3500 },
+            { name: "🍜 라면 한 봉지 (필요)", price: 4000 },
+            { name: "🧀 치즈 (원함)", price: 4500 }
+        ];
+
+        function nextScreen(num) {
+            document.querySelectorAll('#app > div').forEach(div => div.classList.add('hidden'));
+            document.getElementById('screen' + num).classList.remove('hidden');
+        }
+
+        function setupGame() {
+            user.info = document.getElementById('gradeClass').value;
+            user.name = document.getElementById('userName').value;
+            if(!user.name) return alert("이름을 입력해주세요!");
+            
+            document.getElementById('welcomeMsg').innerText = `환영합니다, ${user.name}님!`;
+            initShop();
+            nextScreen(3);
+        }
+
+        function initShop() {
+            const container = document.getElementById('shopItems');
+            items.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.innerHTML = `
+                    <label><input type="checkbox" onchange="updateTotal(${index}, this)"> ${item.name}</label>
+                    <span class="price">${item.price.toLocaleString()}원</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateTotal(index, checkbox) {
+            if (checkbox.checked) {
+                if (currentTotal + items[index].price > budget) {
+                    alert("돈이 부족해요! 꼭 필요한 것인지 생각해보세요.");
+                    checkbox.checked = false;
+                    return;
+                }
+                currentTotal += items[index].price;
+            } else {
+                currentTotal -= items[index].price;
+            }
+            document.getElementById('total').innerText = currentTotal.toLocaleString();
+            document.getElementById('balance').innerText = (budget - currentTotal).toLocaleString();
+        }
+
+        function showResult() {
+            selectedItems = [];
+            document.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                const itemName = cb.parentElement.innerText.trim();
+                const item = items.find(i => i.name === itemName);
+                if(item) selectedItems.push(item);
+            });
+
+            if(selectedItems.length === 0) return alert("물건을 골라주세요!");
+
+            const now = new Date();
+            document.getElementById('receiptDate').innerText = `거래일시: ${now.toLocaleString()}`;
+            document.getElementById('receiptUser').innerText = `고객명: ${user.info} ${user.name}`;
+            
+            const list = document.getElementById('receiptList');
+            list.innerHTML = selectedItems.map(i => `
+                <div class="receipt-item"><span>${i.name}</span><span>${i.price.toLocaleString()}원</span></div>
+            `).join('');
+
+            document.getElementById('resTotal').innerText = currentTotal.toLocaleString() + "원";
+            document.getElementById('resBalance').innerText = (budget - currentTotal).toLocaleString() + "원";
+            
+            nextScreen(5);
+        }
+
+        function downloadReceiptImage() {
+            const receipt = document.getElementById('receiptCapture');
+            // 캡처 시작
+            html2canvas(receipt).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `장보기영수증_${user.name}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+    </script>
+</body>
+</html>
